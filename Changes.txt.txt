@@ -1,0 +1,251 @@
+================================================================================
+FILE MODIFICATION LOG - ANEMOIA NES EMULATOR FOR TTGO VGA32
+================================================================================
+Date: May 29, 2026
+================================================================================
+
+OVERVIEW:
+=========
+The following files have been modified from the original Anemoia NES emulator 
+source code to adapt the emulator for the TTGO VGA32 board. Changes include:
+
+- VGA output configuration (320x240, 6-bit color)
+- PS/2 keyboard input integration
+- I2S audio setup for built-in DAC
+- SD card pin mapping for TTGO VGA32
+- Frameskip implementation for performance optimization
+- UI adjustments for VGA resolution
+- Removal of TFT display dependencies
+
+================================================================================
+MODIFIED FILES LIST
+================================================================================
+
+1. Anemoia_TTGO_Claude_.ino
+   ----------------------------------------------------------------------------
+   - Main emulator entry point
+   - Added TTGO VGA32 specific initialization
+   - Configured CPU frequency to 240 MHz
+   - Implemented frameskip system (configurable)
+   - Set up I2S audio for built-in DAC
+   - Added SD card mounting with TTGO pins
+   - Created separate APU task on Core 0
+
+
+2. config.h
+   ----------------------------------------------------------------------------
+   - Defined VGA pins for TTGO VGA32 (RGB 6-bit)
+   - Configured PS/2 keyboard pins (CLK=33, DAT=32)
+   - Set SD card pins for TTGO (CS=13, MOSI=12, MISO=2, SCLK=14)
+   - Disabled WiFi and Bluetooth for performance
+   - Set audio sample rate to 22050 Hz
+   - Added NESSKIP define for NES internal frameskip
+
+
+3. src/controller.cpp
+   ----------------------------------------------------------------------------
+   - Adapted to use PS/2 keyboard instead of GPIO buttons
+   - Integrated PS2Keyboard class for input handling
+   - Simplified controller read function
+
+
+4. src/controller.h
+   ----------------------------------------------------------------------------
+   - Updated button mapping comments for PS/2 keyboard
+   - Maintained NES button bitmask compatibility
+
+
+5. src/ps2_keyboard.cpp
+   ----------------------------------------------------------------------------
+   - NEW FILE: PS/2 keyboard driver implementation
+   - Uses fabgl library for PS/2 communication
+   - Maps keyboard keys to NES buttons:
+     * Z/X -> A/B buttons
+     * Arrows -> D-pad
+     * ENTER -> Start, SPACE -> Select
+     * ESC -> System reset
+   - Implements non-blocking keyboard reads
+
+
+6. src/ps2_keyboard.h
+   ----------------------------------------------------------------------------
+   - NEW FILE: PS/2 keyboard driver header
+   - Defines NESButton enumeration
+   - Static class interface for keyboard input
+
+
+7. src/ui.cpp
+   ----------------------------------------------------------------------------
+   - Adapted UI for 320x240 VGA resolution
+   - Simplified menu graphics for VGA output
+   - Adjusted text positioning for VGA display
+   - Added frameskip display support
+   - Modified file browser for VGA screen size
+
+
+8. src/ui.h
+   ----------------------------------------------------------------------------
+   - Updated color definitions for VGA (RGB565)
+   - Removed TFT-specific dependencies
+   - Added settings structure for persistence
+
+
+9. src/vga_adapter.cpp
+   ----------------------------------------------------------------------------
+   - NEW FILE: VGA display adapter
+   - Wrapper for low-level VGA_6bit library
+   - Implements fast pixel drawing (TinyNES style)
+   - 8x8 font rendering from GB SDL font
+   - Color conversion from RGB565 to 6-bit VGA
+   - Frameskip management
+   - Screen offset for PPU scrolling
+
+
+10. src/vga_adapter.h
+    ----------------------------------------------------------------------------
+    - NEW FILE: VGA display adapter header
+    - Defines UI color scheme in RGB565
+    - VGA color constants (6-bit format)
+    - Display class interface
+
+
+11. src/vga_6bit.cpp
+    ----------------------------------------------------------------------------
+    - Modified from original Bitluni VGA library
+    - Configured for 320x240 resolution
+    - Single buffer mode (no double buffering for performance)
+    - I2S DMA setup for VGA output
+    - Pin mapping for TTGO VGA32
+    - Optimized for NES emulation timing
+
+
+12. src/vga_6bit.h
+    ----------------------------------------------------------------------------
+    - VGA mode definitions (320x240, 320x200, 256x240)
+    - 6-bit color constants
+    - Public API for VGA control
+
+
+13. src/gb_sdl_font8x8.h
+    ----------------------------------------------------------------------------
+    - UNMODIFIED - included as-is
+    - 8x8 pixel font for text rendering
+
+
+14. src/core/apu2A03.cpp
+    ----------------------------------------------------------------------------
+    - Modified for I2S audio output
+    - Audio buffer sent to I2S instead of DAC
+    - Sample rate set to 22050 Hz
+    - Stereo output (both channels same)
+
+
+15. src/core/apu2A03.h
+    ----------------------------------------------------------------------------
+    - Added I2S includes
+    - Audio buffer as DMA_ATTR for memory optimization
+    - Volume control integration
+
+
+16. src/core/bus.cpp
+    ----------------------------------------------------------------------------
+    - Connected to VGA display instead of TFT
+    - PPU framebuffer linked to VGA output
+    - Frameskip support via frame_latch toggle
+    - Save states use SD card (compatible with TTGO)
+
+
+17. src/core/bus.h
+    ----------------------------------------------------------------------------
+    - Updated to include VGA display pointer
+    - Frame latch for frameskip control
+
+
+18. src/core/cpu6502.cpp
+    ----------------------------------------------------------------------------
+    - Optimized DEX and BNE instructions for speed
+    - Reduced cycle counts in tight loops
+    - Performance tuning for ESP32
+
+
+19. src/core/cpu6502.h
+    ----------------------------------------------------------------------------
+    - No significant changes (maintained original structure)
+
+
+20. src/core/ppu2C02.cpp
+    ----------------------------------------------------------------------------
+    - Modified to write directly to VGA framebuffer
+    - Removed TFT display dependencies
+    - Added render_enabled flag for frameskip
+    - Optimized color conversion (NES index to VGA 6-bit)
+    - Scanline buffer format changed to uint8_t (color indices)
+
+
+21. src/core/ppu2C02.h
+    ----------------------------------------------------------------------------
+    - Added render_enabled flag for frameskip
+    - Added nes_to_vga lookup table (64 bytes)
+    - VGA framebuffer connection
+    - Removed TFT-specific methods
+
+
+================================================================================
+NEW FILES ADDED
+================================================================================
+
+- src/ps2_keyboard.cpp
+- src/ps2_keyboard.h
+- src/vga_adapter.cpp
+- src/vga_adapter.h
+- src/vga_6bit.cpp
+- src/vga_6bit.h
+- src/gb_sdl_font8x8.h
+
+================================================================================
+REMOVED/DEPRECATED FILES (from original Anemoia)
+================================================================================
+
+- TFT display drivers (TFT_eSPI dependencies)
+- GPIO button controller code
+- Analog audio output code (replaced with I2S)
+- Original display adapter
+
+================================================================================
+SUMMARY OF ADAPTATIONS FOR TTGO VGA32
+================================================================================
+
+1. VIDEO OUTPUT:
+   - Changed from SPI TFT (ST7789/ILI9341) to VGA output
+   - Resolution: 320x240
+   - Color depth: 6-bit (64 colors)
+   - Uses I2S DMA for VGA signal generation
+
+2. INPUT:
+   - Changed from GPIO tactile buttons to PS/2 keyboard
+   - Uses fabgl library for PS/2 communication
+   - Full NES button mapping on standard keyboard
+
+3. AUDIO:
+   - Uses built-in I2S DAC instead of external amplifier
+   - Sample rate: 22.05 kHz
+   - Mono output (right channel only)
+
+4. STORAGE:
+   - SD card pins remapped for TTGO VGA32
+   - SPI frequency optimized (20 MHz)
+
+5. PERFORMANCE:
+   - CPU frequency: 240 MHz
+   - Frameskip: configurable (default: 2)
+   - APU on separate core (Core 0)
+   - Aggressive compiler optimizations (-O3)
+
+6. MEMORY:
+   - No PSRAM required
+   - DMA buffers in internal RAM
+   - Optimized data structures for ESP32
+
+================================================================================
+END OF FILE MODIFICATION LOG
+================================================================================
